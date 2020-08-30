@@ -1,17 +1,16 @@
 package andreas.aws.vasttrafik;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Map;
+import java.lang.reflect.Type;
+import java.util.*;
 
 
 import andreas.aws.vasttrafik.model.*;
 import com.google.api.client.http.*;
 import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.appengine.repackaged.com.google.gson.Gson;
-import com.google.appengine.repackaged.com.google.gson.GsonBuilder;
+import com.google.appengine.repackaged.com.google.gson.*;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
+import com.google.appengine.repackaged.com.google.gson.reflect.TypeToken;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
@@ -23,9 +22,10 @@ public class Vasttrafik
     private String OAUTH_KEY = "WgQcqxz_mmS50T78kws3nyXih1Aa";
     private String OAUTH_SECRET = "z1AFCo1n612AkFZovJd6FPCpUDoa";
     private final String ENDPOINT = "https://api.vasttrafik.se/bin/rest.exe/v2";
-    private final String ARRIVAL_ENDPOINT = ENDPOINT + "/arrivalBoard";
+    private final String ARRIVAL_ENDPOINT   = ENDPOINT + "/arrivalBoard";
     private final String DEPARTURE_ENDPOINT = ENDPOINT + "/departureBoard";
-    private final String LOCATION_ENDPOINT = ENDPOINT + "/location.name";
+    private final String LOCATION_ENDPOINT  = ENDPOINT + "/location.name";
+    private final String TRIP_ENDPOINT      = ENDPOINT + "/trip";
     private String ACCESS_TOKEN;
     private String TOKEN_TYPE;
     private LambdaLogger logger;
@@ -57,7 +57,7 @@ public class Vasttrafik
 
                 String json = response.parseAsString();
 
-                Gson gson = new GsonBuilder().create();
+                Gson gson = new GsonBuilder().setPrettyPrinting().create();
                 OAUTHresponse oauthResponse = gson.fromJson(json, OAUTHresponse.class);
                 logger.log(oauthResponse.toString());
                 ACCESS_TOKEN = oauthResponse.access_token;
@@ -127,7 +127,7 @@ public class Vasttrafik
         //logger.info(ab.toString());
     }
 
-    public LinkedList<VasttrafikDeparture> getDepartures(long locationID, DateTime dateTime) throws IOException
+    public VasttrafikDepartureBoard getDepartures(long locationID, DateTime dateTime) throws IOException
     {
         String dateString = dateTime.toString(DateTimeFormat.forPattern("yyyy-MM-dd"));
         String timeString = dateTime.toString(DateTimeFormat.forPattern("HH:mm"));
@@ -143,13 +143,75 @@ public class Vasttrafik
         DepatureResponse ab = gson.fromJson(json, DepatureResponse.class);
         //logger.info(ab.toString());
 
-        return ab.getDepartureBoard().getDeparture();
+        return ab.getDepartureBoard();
+    }
+
+    public TripResponse getTrips(long originID, long destinationID, DateTime dateTime) throws IOException
+    {
+        TripResponse tripResponse = new TripResponse();
+        tripResponse.TripList = new VasttrafikTripList();
+        ArrayList<VasttrafikTripListTrip> Trip = new ArrayList<>();
+        tripResponse.TripList.Trip = Trip;
+
+        // https://api.vasttrafik.se/bin/rest.exe/v2/trip?originId=9021014001960000&destId=9021014082960000&date=2020-08-21&time=10%3A27&format=json
+        String dateString = dateTime.toString(DateTimeFormat.forPattern("yyyy-MM-dd"));
+        String timeString = dateTime.toString(DateTimeFormat.forPattern("HH:mm"));
+
+        GenericUrl url = new GenericUrl(TRIP_ENDPOINT);
+        url.put("originId", originID);
+        url.put("destId", destinationID);
+        url.put("date", dateString);
+        url.put("time", timeString);
+        url.put("format", "json");
+
+        String json = getRequest(url);
+        logger.log("incomming JSON to getTrips():\n" + json);
+
+        JsonParser parser = new JsonParser();
+        JsonObject rootObj = parser.parse(json).getAsJsonObject();
+        JsonObject tripList = rootObj.getAsJsonObject("TripList");
+        JsonArray trips = tripList.getAsJsonArray("Trip");
+
+
+        for (JsonElement trip : trips)
+        {
+
+            JsonElement legs = trip.getAsJsonObject().get("Leg");
+            ArrayList<VasttrafikTripListTripLeg> Leg = new ArrayList<>();
+            // `instanceof` tells us whether the object can be cast to a specific type
+            if (legs instanceof JsonArray)
+            {
+                for (JsonElement leg : legs.getAsJsonArray())
+                {
+                    Leg.add(getLeg(leg.getAsJsonObject()));
+                }
+            }
+            else if (legs instanceof JsonObject)
+            {
+                Leg.add(getLeg(legs.getAsJsonObject()));
+            }
+            VasttrafikTripListTrip vasttrafikTripListTrip = new VasttrafikTripListTrip();
+            vasttrafikTripListTrip.Leg = Leg;
+
+            tripResponse.TripList.Trip.add(vasttrafikTripListTrip);
+        }
+
+        return tripResponse;
+    }
+
+    private VasttrafikTripListTripLeg getLeg(JsonObject jsonObject)
+    {
+        VasttrafikTripListTripLeg leg = new VasttrafikTripListTripLeg();
+
+        leg.name = jsonObject.getAsJsonPrimitive("name").getAsString();
+
+        return leg;
     }
 
     public String getDepartureMessage(int maxDepartures, long locationID, DateTime dateTime) throws IOException
     {
         String departureString = "Departures:  \n";
-        LinkedList<VasttrafikDeparture> departures = getDepartures(locationID, dateTime);
+        LinkedList<VasttrafikDeparture> departures = getDepartures(locationID, dateTime).getDeparture();
 
         if (maxDepartures <= 0 || maxDepartures >= departures.size())
             maxDepartures = departures.size() - 1;
@@ -186,4 +248,8 @@ public class Vasttrafik
         return null;
     }
 
+    public String getToken()
+    {
+        return TOKEN_TYPE + ": " + ACCESS_TOKEN;
+    }
 }

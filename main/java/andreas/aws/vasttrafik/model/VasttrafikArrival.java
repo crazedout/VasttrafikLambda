@@ -21,9 +21,10 @@ public class VasttrafikArrival
             "bgColor": "#00435C",
             "stroke": "Solid",
             "accessibility": "wheelChair",
-            "JourneyDetailRef": {
-        "ref": "https://api.vasttrafik.se/bin/rest.exe/v2/journeyDetail?ref=552861%2F224055%2F810834%2F221130%2F80%3Fdate%3D2020-05-13%26station_evaId%3D7340004%26station_type%3Darr%26format%3Djson%26"
-    }
+            "JourneyDetailRef":
+             {
+                "ref": "https://api.vasttrafik.se/bin/rest.exe/v2/journeyDetail?ref=552861%2F224055%2F810834%2F221130%2F80%3Fdate%3D2020-05-13%26station_evaId%3D7340004%26station_type%3Darr%26format%3Djson%26"
+             }
     */
 
     private String name;

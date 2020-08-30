@@ -1,12 +1,11 @@
 package andreas.aws.vasttrafik;
 
-import andreas.aws.vasttrafik.model.qna.QNABotFullfillmentRequest;
-import andreas.aws.vasttrafik.model.qna.QNABotResponse;
+import se.chalmers.qna.model.QNABotFullfillmentRequest;
+import se.chalmers.qna.model.QNABotResponse;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-
 import software.amazon.awssdk.services.lambda.model.GetAccountSettingsRequest;
 import software.amazon.awssdk.services.lambda.model.GetAccountSettingsResponse;
 import software.amazon.awssdk.services.lambda.LambdaAsyncClient;

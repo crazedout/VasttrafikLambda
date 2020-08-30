@@ -1,8 +1,8 @@
 package andreas.aws.vasttrafik.test;
 
-import andreas.aws.vasttrafik.model.qna.QNABotFullfillmentRequest;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import se.chalmers.qna.model.QNABotFullfillmentRequest;
 
 public class TestQNABotFullfillmentRequest
 {

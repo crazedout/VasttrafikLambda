@@ -1,5 +1,6 @@
 package andreas.aws.vasttrafik;
 
+import andreas.aws.vasttrafik.model.TripResponse;
 import andreas.aws.vasttrafik.test.TestQNABotFullfillmentRequest;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import org.joda.time.DateTime;
@@ -23,12 +24,20 @@ public class Main {
 
     public static void main(String[] args)
     {
-        try {
+        try
+        {
             Vasttrafik vasttrafik = new Vasttrafik(logger, "WgQcqxz_mmS50T78kws3nyXih1Aa", "z1AFCo1n612AkFZovJd6FPCpUDoa");
             vasttrafik.authenticate();
             //vasttrafik.getArrivals(9021014001960000l, 9021014007340000l, DateTime.now(DateTimeZone.forID("Europe/Stockholm"));
-            System.out.println(vasttrafik.getDepartureMessage(5,9021014001960000L, DateTime.now(DateTimeZone.forID("Europe/Stockholm"))));
-        } catch (IOException e)
+            //System.out.println(vasttrafik.getDepartureMessage(5,9021014001960000L, DateTime.now(DateTimeZone.forID("Europe/Stockholm"))));
+            long origin = vasttrafik.getBestLocationMatch("lindhomen");
+            long destination = vasttrafik.getBestLocationMatch("brunnsparken");
+            System.out.println("origin = " + origin + "  destination: " + destination);
+            TripResponse tripResponse = vasttrafik.getTrips(origin, destination, DateTime.now(DateTimeZone.forID("Europe/Stockholm")));
+
+            System.out.println(tripResponse.TripList.getMarkdownTrips());
+        }
+        catch (IOException e)
         {
             logger.log("IOException when communicating with västtrafik: " + e);
         }

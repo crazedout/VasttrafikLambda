@@ -1,7 +1,7 @@
 package andreas.aws.vasttrafik;
 
-import andreas.aws.vasttrafik.model.qna.QNABotFullfillmentRequest;
-import andreas.aws.vasttrafik.model.qna.QNABotResponse;
+import andreas.aws.vasttrafik.model.TripResponse;
+import andreas.aws.vasttrafik.model.VasttrafikDeparture;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.RequestStreamHandler;
@@ -11,11 +11,11 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import se.chalmers.qna.model.QNABotFullfillmentRequest;
 
 import java.io.*;
 import java.nio.charset.Charset;
-import java.time.LocalDateTime;
-import java.util.TimeZone;
+import java.util.LinkedList;
 
 
 public class StreamLambda implements RequestStreamHandler
@@ -68,14 +68,63 @@ public class StreamLambda implements RequestStreamHandler
         try
         {
             vasttrafik.authenticate();
-            // process Lambda API response
-            String departures = vasttrafik.getDepartureMessage(5,9021014001960000L, DateTime.now(DateTimeZone.forID("Europe/Stockholm")));
-            event.setMarkupMessage(departures);
-            logger.log(departures + "\n");
         }
         catch (IOException e)
         {
-            logger.log(e.getMessage());
+            logger.log("Authentication towards Västtrafik failed: " + e.getMessage());
+        }
+
+        if (event.res.session.stops != null)
+        {
+            long origin = 0;
+            long destination = 0;
+
+            try
+            {
+                if (event.res.session.stops.START_STOP != null && event.res.session.stops.START_STOP.length() > 2)
+                    origin = vasttrafik.getBestLocationMatch(event.res.session.stops.START_STOP);
+                if (event.res.session.stops.END_STOP != null && event.res.session.stops.END_STOP.length() > 2)
+                    destination = vasttrafik.getBestLocationMatch(event.res.session.stops.END_STOP);
+            }
+            catch (IOException e)
+            {
+                logger.log("Failed to look up stop locations: " + e);
+            }
+
+            if (origin != 0 && destination != 0)
+            {
+                logger.log("Finding fares between " + event.res.session.stops.START_STOP + " (" + origin + ") and " +
+                        event.res.session.stops.END_STOP + " (" + destination + ")");
+
+                try
+                {
+                    TripResponse tripResponse = vasttrafik.getTrips(origin, destination, DateTime.now(DateTimeZone.forID("Europe/Stockholm")));
+                    event.setMarkupMessage(tripResponse.TripList.getMarkdownTrips());
+                }
+                catch (IOException e)
+                {
+                    logger.log("Failed to find a trip: " + e.getMessage());
+                    event.setMarkupMessage("Trouble finding a trip. :(");
+                }
+
+                event.res.session.stops.START_STOP = ""; // Removing so user can get a location
+                event.res.session.stops.END_STOP = "";
+            }
+            else if (origin != 0)
+            {
+                logger.log("Finding departures from: " + event.res.session.stops.START_STOP + "(" + origin + ")");
+
+                try
+                {
+                    event.setMarkupMessage(vasttrafik.getDepartureMessage(5, origin, DateTime.now(DateTimeZone.forID("Europe/Stockholm"))));
+                }
+                catch (IOException e)
+                {
+                    logger.log("Failed to find departures: " + e.getMessage());
+                    event.setMarkupMessage("Trouble finding a trip. :(");
+                }
+                event.res.session.stops.START_STOP = "";
+            }
         }
 
         logger.log("PROCESSED EVENT:\n" + gson.toJson(event) + "\n\n");

@@ -26,4 +26,16 @@ public class VasttrafikDepartureBoard
     {
         return Departure;
     }
+
+    public String getMarkdownString()
+    {
+        String result = "";
+
+        for (VasttrafikDeparture d : Departure)
+        {
+            result = result.concat(d.toString() + "\n");
+        }
+
+        return result;
+    }
 }
